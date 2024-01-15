@@ -25,10 +25,15 @@
     <title>Image Processing with Web Workers</title>
   </head>
   <body>
-    <input type="file" id="imageInput" accept="image/*" />
-    <canvas id="originalCanvas"></canvas>
-    <canvas id="processedCanvas"></canvas>
-    <div id="filters"></div>
-    <div id="performanceMetrics"></div>
+    <div class="wrapper">
+      <h1>Image processor</h1>
+      <input type="file" id="imageInput" accept="image/*" />
+      <div class="images">
+        <canvas id="originalCanvas"></canvas>
+        <canvas id="processedCanvas"></canvas>
+      </div>
+      <div id="filters"></div>
+      <div id="performanceMetrics"></div>
+    </div>
   </body>
 </html>
