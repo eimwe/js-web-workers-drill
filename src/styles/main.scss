@@ -1,5 +1,47 @@
-$bg-color: cyan;
+html {
+  box-sizing: border-box;
+  scroll-behavior: smooth;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
 
 body {
-  background-color: $bg-color;
+  font: 1em "Calibri", sans-serif;
+}
+
+.wrapper {
+  max-width: 1374px;
+  margin-inline: auto;
+}
+
+#imageInput {
+  display: block;
+  min-width: 100%;
+  padding: 2em;
+  margin-block-end: 1em;
+  background-color: #ededed;
+}
+
+.images {
+  display: flex;
+  gap: 1em;
+}
+
+#filters {
+  padding: 2em;
+  margin-block-start: 1em;
+}
+
+#filters > button {
+  padding-inline: 1em;
+  font: inherit;
+}
+
+#performanceMetrics {
+  font-weight: bold;
+  text-align: center;
 }
