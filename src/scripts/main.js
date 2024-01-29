@@ -122,6 +122,9 @@ const applyFilter = (filter) => {
     performanceMetricsContainer.textContent = `Filter: ${activeFilter}, Processing Time: ${processingTime.toFixed(
       2
     )} ms`;
+
+    // Terminate the worker after processing
+    imageProcessorWorker.terminate();
   };
 };
 
@@ -129,8 +132,7 @@ const applyFilter = (filter) => {
  * Loads available filters as buttons in the UI.
  */
 const loadFilters = () => {
-  const availableFilters = ["Grayscale"];
-
+  const availableFilters = ["Lighten up"];
   availableFilters.forEach((filter) => {
     const filterButton = document.createElement("button");
     filterButton.textContent = filter;
