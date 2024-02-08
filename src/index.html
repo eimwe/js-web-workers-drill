@@ -21,19 +21,11 @@
       href="assets/favicon/favicon-16x16.png"
     />
     <link rel="stylesheet" href="styles/main.css" />
-    <script type="module" src="scripts/main.js"></script>
     <title>Image Processing with Web Workers</title>
   </head>
   <body>
-    <div class="wrapper">
-      <h1>Image processor</h1>
-      <input type="file" id="imageInput" accept="image/*" />
-      <div class="images">
-        <canvas id="originalCanvas"></canvas>
-        <canvas id="processedCanvas"></canvas>
-      </div>
-      <div id="filters"></div>
-      <div id="performanceMetrics"></div>
-    </div>
+    <input type="file" id="imageInput" accept="image/*" />
+    <img id="outputImage" />
+    <script src="scripts/main.js"></script>
   </body>
 </html>
