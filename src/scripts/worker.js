@@ -1,12 +1,12 @@
 importScripts("https://www.lactame.com/lib/image-js/0.21.2/image.min.js");
 
 self.onmessage = async (event) => {
-  const base64String = event.data;
+  const { base64String, channel } = event.data;
   const blob = await fetchImageData(base64String);
   const bitmap = await IJS.Image.load(blob);
-  const processedBitmap = applyFilter(bitmap);
+  const processedBitmap = applyFilter(bitmap, channel);
   const processedBase64String = await convertToBase64(processedBitmap);
-  self.postMessage(processedBase64String);
+  self.postMessage({ channel, processedBase64String });
 };
 
 async function fetchImageData(base64String) {
@@ -27,10 +27,19 @@ async function fetchImageData(base64String) {
   });
 }
 
-function applyFilter(bitmap) {
+function applyFilter(bitmap, channel) {
   const { width, height, data } = bitmap;
 
-  for (let i = 0; i < width * height * 4; i += 4) {
+  let channelIndex;
+  if (channel === "Red") {
+    channelIndex = 0;
+  } else if (channel === "Green") {
+    channelIndex = 1;
+  } else if (channel === "Blue") {
+    channelIndex = 2;
+  }
+
+  for (let i = channelIndex; i < width * height * 4; i += 4) {
     const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
     data[i] = avg; // Red
     data[i + 1] = avg; // Green
