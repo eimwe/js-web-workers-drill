@@ -27,23 +27,13 @@ async function fetchImageData(base64String) {
   });
 }
 
-function applyFilter(bitmap, channel) {
+function applyFilter(bitmap) {
   const { width, height, data } = bitmap;
 
-  let channelIndex;
-  if (channel === "Red") {
-    channelIndex = 0;
-  } else if (channel === "Green") {
-    channelIndex = 1;
-  } else if (channel === "Blue") {
-    channelIndex = 2;
-  }
-
-  for (let i = channelIndex; i < width * height * 4; i += 4) {
-    const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-    data[i] = avg; // Red
-    data[i + 1] = avg; // Green
-    data[i + 2] = avg; // Blue
+  for (let i = 0; i < width * height * 4; i += 4) {
+    data[i] = Math.min(data[i] + 100, 255); // Red
+    data[i + 1] = Math.min(data[i + 1] + 100, 255); // Green
+    data[i + 2] = Math.min(data[i + 2] + 100, 255); // Blue
   }
 
   return bitmap;
