@@ -4,7 +4,17 @@ self.onmessage = async (event) => {
   const { base64String, channel } = event.data;
   const blob = await fetchImageData(base64String);
   const bitmap = await IJS.Image.load(blob);
-  const processedBitmap = applyFilter(bitmap, channel);
+
+  let processedBitmap;
+
+  if (channel === "Red") {
+    processedBitmap = applyRedFilter(bitmap);
+  } else if (channel === "Green") {
+    processedBitmap = applyGreenFilter(bitmap);
+  } else if (channel === "Blue") {
+    processedBitmap = applyBlueFilter(bitmap);
+  }
+
   const processedBase64String = await convertToBase64(processedBitmap);
   self.postMessage({ channel, processedBase64String });
 };
@@ -27,12 +37,30 @@ async function fetchImageData(base64String) {
   });
 }
 
-function applyFilter(bitmap) {
+function applyRedFilter(bitmap) {
   const { width, height, data } = bitmap;
 
   for (let i = 0; i < width * height * 4; i += 4) {
     data[i] = Math.min(data[i] + 100, 255); // Red
+  }
+
+  return bitmap;
+}
+
+function applyGreenFilter(bitmap) {
+  const { width, height, data } = bitmap;
+
+  for (let i = 0; i < width * height * 4; i += 4) {
     data[i + 1] = Math.min(data[i + 1] + 100, 255); // Green
+  }
+
+  return bitmap;
+}
+
+function applyBlueFilter(bitmap) {
+  const { width, height, data } = bitmap;
+
+  for (let i = 0; i < width * height * 4; i += 4) {
     data[i + 2] = Math.min(data[i + 2] + 100, 255); // Blue
   }
 
