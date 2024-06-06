@@ -22,33 +22,69 @@ imageInput.addEventListener("change", () => {
       workerGreen.postMessage({ base64String, channel: "Green" });
       workerBlue.postMessage({ base64String, channel: "Blue" });
 
-      let redProcessed = false;
-      let greenProcessed = false;
-      let blueProcessed = false;
+      // Function to create a promise for each worker
+      const createWorkerPromise = (worker) => {
+        return new Promise((resolve, reject) => {
+          worker.onmessage = (event) => {
+            const { channel, processedBase64String } = event.data;
+            console.log(
+              `Received processed data for ${channel} channel:`,
+              processedBase64String
+            );
+            resolve({ channel, processedBase64String });
+          };
+        });
+      };
 
-      // Handle messages from each worker
-      const handleWorkerMessage = (event) => {
-        const { channel, processedBase64String } = event.data;
-        if (channel === "Red") {
-          redProcessed = true;
-        } else if (channel === "Green") {
-          greenProcessed = true;
-        } else if (channel === "Blue") {
-          blueProcessed = true;
-        }
+      // Create promises for each worker
+      const redPromise = createWorkerPromise(workerRed);
+      const greenPromise = createWorkerPromise(workerGreen);
+      const bluePromise = createWorkerPromise(workerBlue);
 
-        // Update output image when all workers have completed processing
-        if (redProcessed && greenProcessed && blueProcessed) {
-          outputImage.src = "data:image/png;base64," + processedBase64String;
+      // Wait for all promises to resolve
+      Promise.all([redPromise, greenPromise, bluePromise]).then(
+        async (processedDataArray) => {
+          const [redData, greenData, blueData] = processedDataArray;
+
+          // Load images from base64 strings using image-js
+          const redImage = await IJS.Image.load(
+            "data:image/png;base64," + redData.processedBase64String
+          );
+          const greenImage = await IJS.Image.load(
+            "data:image/png;base64," + greenData.processedBase64String
+          );
+          const blueImage = await IJS.Image.load(
+            "data:image/png;base64," + blueData.processedBase64String
+          );
+
+          // Combine channels
+          const combinedImage = new IJS.Image(redImage.width, redImage.height);
+
+          for (let y = 0; y < redImage.height; y++) {
+            for (let x = 0; x < redImage.width; x++) {
+              const redPixel = redImage.getPixelXY(x, y);
+              const greenPixel = greenImage.getPixelXY(x, y);
+              const bluePixel = blueImage.getPixelXY(x, y);
+
+              combinedImage.setPixelXY(x, y, [
+                redPixel[0],
+                greenPixel[1],
+                bluePixel[2],
+                255, // Assuming full opacity for the combined image
+              ]);
+            }
+          }
+
+          // Convert combined image to base64 and set as src for outputImage
+          const combinedBase64 = await combinedImage.toBase64("image/png");
+          outputImage.src = "data:image/png;base64," + combinedBase64;
+
+          // Terminate workers
           workerRed.terminate();
           workerGreen.terminate();
           workerBlue.terminate();
         }
-      };
-
-      workerRed.onmessage = handleWorkerMessage;
-      workerGreen.onmessage = handleWorkerMessage;
-      workerBlue.onmessage = handleWorkerMessage;
+      );
     };
     reader.readAsDataURL(file);
   }
