@@ -26,22 +26,12 @@ body {
   background-color: #ededed;
 }
 
-.images {
+#outputContainer {
   display: flex;
-  gap: 1em;
+  justify-content: space-between;
 }
 
-#filters {
-  padding: 2em;
-  margin-block-start: 1em;
-}
-
-#filters > button {
-  padding-inline: 1em;
-  font: inherit;
-}
-
-#performanceMetrics {
-  font-weight: bold;
-  text-align: center;
+.outputImage {
+  max-width: 300px;
+  object-fit: cover;
 }
