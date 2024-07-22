@@ -1,91 +1,103 @@
 const imageInput = document.getElementById("imageInput");
-const outputImage = document.getElementById("outputImage");
+const outputContainer = document.getElementById("outputContainer");
 
 imageInput.addEventListener("change", () => {
-  const file = imageInput.files[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64String = reader.result.split(",")[1];
-      const workerRed = new Worker("scripts/worker.js", {
-        name: "Mr.Red",
-      });
-      const workerGreen = new Worker("scripts/worker.js", {
-        name: "Mr.Green",
-      });
-      const workerBlue = new Worker("scripts/worker.js", {
-        name: "Mr.Blue",
-      });
-
-      // Send base64 string to each worker
-      workerRed.postMessage({ base64String, channel: "Red" });
-      workerGreen.postMessage({ base64String, channel: "Green" });
-      workerBlue.postMessage({ base64String, channel: "Blue" });
-
-      // Function to create a promise for each worker
-      const createWorkerPromise = (worker) => {
-        return new Promise((resolve, reject) => {
-          worker.onmessage = (event) => {
-            const { channel, processedBase64String } = event.data;
-            console.log(
-              `Received processed data for ${channel} channel:`,
-              processedBase64String
-            );
-            resolve({ channel, processedBase64String });
-          };
-        });
-      };
-
-      // Create promises for each worker
-      const redPromise = createWorkerPromise(workerRed);
-      const greenPromise = createWorkerPromise(workerGreen);
-      const bluePromise = createWorkerPromise(workerBlue);
-
-      // Wait for all promises to resolve
-      Promise.all([redPromise, greenPromise, bluePromise]).then(
-        async (processedDataArray) => {
-          const [redData, greenData, blueData] = processedDataArray;
-
-          // Load images from base64 strings using image-js
-          const redImage = await IJS.Image.load(
-            "data:image/png;base64," + redData.processedBase64String
-          );
-          const greenImage = await IJS.Image.load(
-            "data:image/png;base64," + greenData.processedBase64String
-          );
-          const blueImage = await IJS.Image.load(
-            "data:image/png;base64," + blueData.processedBase64String
-          );
-
-          // Combine channels
-          const combinedImage = new IJS.Image(redImage.width, redImage.height);
-
-          for (let y = 0; y < redImage.height; y++) {
-            for (let x = 0; x < redImage.width; x++) {
-              const redPixel = redImage.getPixelXY(x, y);
-              const greenPixel = greenImage.getPixelXY(x, y);
-              const bluePixel = blueImage.getPixelXY(x, y);
-
-              combinedImage.setPixelXY(x, y, [
-                redPixel[0],
-                greenPixel[1],
-                bluePixel[2],
-                255, // Assuming full opacity for the combined image
-              ]);
-            }
-          }
-
-          // Convert combined image to base64 and set as src for outputImage
-          const combinedBase64 = await combinedImage.toBase64("image/png");
-          outputImage.src = "data:image/png;base64," + combinedBase64;
-
-          // Terminate workers
-          workerRed.terminate();
-          workerGreen.terminate();
-          workerBlue.terminate();
-        }
-      );
-    };
-    reader.readAsDataURL(file);
+  const files = Array.from(imageInput.files);
+  if (files.length > 0) {
+    processImages(files);
   }
 });
+
+async function processImages(files) {
+  const workerPool = [
+    new Worker("scripts/worker.js", { name: "Worker1" }),
+    new Worker("scripts/worker.js", { name: "Worker2" }),
+    new Worker("scripts/worker.js", { name: "Worker3" }),
+  ];
+
+  const taskQueue = files.map((file) => () => processImage(file, workerPool));
+  const concurrencyLimit = workerPool.length;
+
+  try {
+    const processedImages = await runConcurrently(taskQueue, concurrencyLimit);
+    displayProcessedImages(processedImages);
+  } finally {
+    workerPool.forEach((worker) => worker.terminate());
+  }
+}
+
+async function processImage(file, workerPool) {
+  const imageData = await readFileAsImageData(file);
+  const worker = await getAvailableWorker(workerPool);
+
+  try {
+    return await createWorkerPromise(worker, imageData);
+  } finally {
+    worker.busy = false;
+  }
+}
+
+function getAvailableWorker(workerPool) {
+  return new Promise((resolve) => {
+    const checkWorkers = () => {
+      const availableWorker = workerPool.find((worker) => !worker.busy);
+      if (availableWorker) {
+        availableWorker.busy = true;
+        resolve(availableWorker);
+      } else {
+        setTimeout(checkWorkers, 10);
+      }
+    };
+    checkWorkers();
+  });
+}
+
+function readFileAsImageData(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => resolve(event.target.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function createWorkerPromise(worker, imageData) {
+  return new Promise((resolve, reject) => {
+    worker.onmessage = (event) => {
+      const { processedImageData } = event.data;
+      resolve(processedImageData);
+    };
+    worker.onerror = reject;
+    worker.postMessage({ imageData });
+  });
+}
+
+async function runConcurrently(tasks, concurrencyLimit) {
+  const results = [];
+  const runningTasks = new Set();
+
+  for (const task of tasks) {
+    const promise = task().then((result) => {
+      results.push(result);
+      runningTasks.delete(promise);
+    });
+    runningTasks.add(promise);
+    if (runningTasks.size >= concurrencyLimit) {
+      await Promise.race(runningTasks);
+    }
+  }
+
+  await Promise.all(runningTasks);
+  return results;
+}
+
+function displayProcessedImages(processedImages) {
+  outputContainer.innerHTML = "";
+
+  for (const imageData of processedImages) {
+    const img = document.createElement("img");
+    img.src = imageData;
+    img.className = "outputImage";
+    outputContainer.appendChild(img);
+  }
+}
