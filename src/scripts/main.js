@@ -1,3 +1,5 @@
+import eraseNodes from "./utils/node-eraser.js";
+
 const imageInput = document.getElementById("imageInput");
 const outputContainer = document.getElementById("outputContainer");
 
@@ -92,12 +94,16 @@ async function runConcurrently(tasks, concurrencyLimit) {
 }
 
 function displayProcessedImages(processedImages) {
-  outputContainer.innerHTML = "";
+  eraseNodes(outputContainer);
+
+  const fragment = document.createDocumentFragment();
 
   for (const imageData of processedImages) {
     const img = document.createElement("img");
     img.src = imageData;
     img.className = "outputImage";
-    outputContainer.appendChild(img);
+    fragment.append(img);
   }
+
+  outputContainer.append(fragment);
 }
