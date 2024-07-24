@@ -2,6 +2,7 @@ import eraseNodes from "./utils/node-eraser.js";
 
 const imageInput = document.getElementById("imageInput");
 const outputContainer = document.getElementById("outputContainer");
+const timingContainer = document.getElementById("timingResults");
 
 imageInput.addEventListener("change", () => {
   const files = Array.from(imageInput.files);
@@ -12,28 +13,47 @@ imageInput.addEventListener("change", () => {
 
 async function processImages(files) {
   const workerPool = [
-    new Worker("scripts/worker.js", { name: "Worker1" }),
-    new Worker("scripts/worker.js", { name: "Worker2" }),
-    new Worker("scripts/worker.js", { name: "Worker3" }),
+    new Worker("scripts/worker.js"),
+    new Worker("scripts/worker.js"),
+    new Worker("scripts/worker.js"),
   ];
+
+  workerPool.forEach((worker, index) => {
+    worker.name = `Worker${index + 1}`;
+    worker.totalTime = 0;
+  });
 
   const taskQueue = files.map((file) => () => processImage(file, workerPool));
   const concurrencyLimit = workerPool.length;
+
+  const startTime = performance.now();
 
   try {
     const processedImages = await runConcurrently(taskQueue, concurrencyLimit);
     displayProcessedImages(processedImages);
   } finally {
-    workerPool.forEach((worker) => worker.terminate());
+    workerPool.forEach((worker) => {
+      worker.terminate();
+    });
   }
+
+  const endTime = performance.now();
+  const totalTime = endTime - startTime;
+
+  displayTimingResults(totalTime, workerPool);
 }
 
 async function processImage(file, workerPool) {
   const imageData = await readFileAsImageData(file);
   const worker = await getAvailableWorker(workerPool);
 
+  const startTime = performance.now();
   try {
-    return await createWorkerPromise(worker, imageData);
+    const result = await createWorkerPromise(worker, imageData);
+    const endTime = performance.now();
+    const processingTime = endTime - startTime;
+    worker.totalTime += processingTime;
+    return result;
   } finally {
     worker.busy = false;
   }
@@ -91,6 +111,28 @@ async function runConcurrently(tasks, concurrencyLimit) {
 
   await Promise.all(runningTasks);
   return results;
+}
+
+function displayTimingResults(totalTime, workerPool) {
+  eraseNodes(timingContainer);
+
+  const title = document.createElement("h3");
+  title.textContent = "Timing Results:";
+
+  const totalTimeP = document.createElement("p");
+  totalTimeP.textContent = `Total processing time: ${totalTime.toFixed(2)} ms`;
+
+  const workerTitle = document.createElement("h4");
+  workerTitle.textContent = "Individual Worker Times:";
+
+  const workerList = document.createElement("ul");
+  workerPool.forEach((worker) => {
+    const listItem = document.createElement("li");
+    listItem.textContent = `${worker.name}: ${worker.totalTime.toFixed(2)} ms`;
+    workerList.append(listItem);
+  });
+
+  timingContainer.append(title, totalTimeP, workerTitle, workerList);
 }
 
 function displayProcessedImages(processedImages) {
