@@ -18,18 +18,18 @@ async function processImages(files) {
     new Worker("scripts/worker.js"),
   ];
 
+  const tasks = ["brightness", "crop", "round"];
+
   workerPool.forEach((worker, index) => {
     worker.name = `Worker${index + 1}`;
+    worker.task = tasks[index];
     worker.totalTime = 0;
   });
-
-  const taskQueue = files.map((file) => () => processImage(file, workerPool));
-  const concurrencyLimit = workerPool.length;
 
   const startTime = performance.now();
 
   try {
-    const processedImages = await runConcurrently(taskQueue, concurrencyLimit);
+    const processedImages = await processImagesSequentially(files, workerPool);
     displayProcessedImages(processedImages);
   } finally {
     workerPool.forEach((worker) => {
@@ -43,10 +43,23 @@ async function processImages(files) {
   displayTimingResults(totalTime, workerPool);
 }
 
-async function processImage(file, workerPool) {
-  const imageData = await readFileAsImageData(file);
-  const worker = await getAvailableWorker(workerPool);
+async function processImagesSequentially(files, workerPool) {
+  const processedImages = [];
 
+  for (const file of files) {
+    let imageData = await readFileAsImageData(file);
+
+    for (const worker of workerPool) {
+      imageData = await processImageWithWorker(worker, imageData);
+    }
+
+    processedImages.push(imageData);
+  }
+
+  return processedImages;
+}
+
+async function processImageWithWorker(worker, imageData) {
   const startTime = performance.now();
   try {
     const result = await createWorkerPromise(worker, imageData);
@@ -54,24 +67,10 @@ async function processImage(file, workerPool) {
     const processingTime = endTime - startTime;
     worker.totalTime += processingTime;
     return result;
-  } finally {
-    worker.busy = false;
+  } catch (error) {
+    console.error(`Error processing image with ${worker.name}:`, error);
+    throw error;
   }
-}
-
-function getAvailableWorker(workerPool) {
-  return new Promise((resolve) => {
-    const checkWorkers = () => {
-      const availableWorker = workerPool.find((worker) => !worker.busy);
-      if (availableWorker) {
-        availableWorker.busy = true;
-        resolve(availableWorker);
-      } else {
-        setTimeout(checkWorkers, 10);
-      }
-    };
-    checkWorkers();
-  });
 }
 
 function readFileAsImageData(file) {
@@ -90,27 +89,8 @@ function createWorkerPromise(worker, imageData) {
       resolve(processedImageData);
     };
     worker.onerror = reject;
-    worker.postMessage({ imageData });
+    worker.postMessage({ imageData, task: worker.task });
   });
-}
-
-async function runConcurrently(tasks, concurrencyLimit) {
-  const results = [];
-  const runningTasks = new Set();
-
-  for (const task of tasks) {
-    const promise = task().then((result) => {
-      results.push(result);
-      runningTasks.delete(promise);
-    });
-    runningTasks.add(promise);
-    if (runningTasks.size >= concurrencyLimit) {
-      await Promise.race(runningTasks);
-    }
-  }
-
-  await Promise.all(runningTasks);
-  return results;
 }
 
 function displayTimingResults(totalTime, workerPool) {
@@ -128,7 +108,9 @@ function displayTimingResults(totalTime, workerPool) {
   const workerList = document.createElement("ul");
   workerPool.forEach((worker) => {
     const listItem = document.createElement("li");
-    listItem.textContent = `${worker.name}: ${worker.totalTime.toFixed(2)} ms`;
+    listItem.textContent = `${worker.name} (${
+      worker.task
+    }): ${worker.totalTime.toFixed(2)} ms`;
     workerList.append(listItem);
   });
 
