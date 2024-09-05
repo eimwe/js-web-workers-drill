@@ -13,7 +13,12 @@ async function fetchAndCache(url) {
   try {
     console.log("Worker: Fetching data from:", url);
     const response = await fetch(url, {
-      credentials: "include", // This ensures cookies are sent with the request
+      credentials: "include",
+      mode: "cors",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
     });
     const data = await response.json();
     console.log("Worker: Data fetched successfully:", data);
