@@ -6,21 +6,6 @@ worker.onerror = function (error) {
   console.error("Error in worker:", error.message);
 };
 
-async function fetchFromMainThread(url) {
-  try {
-    console.log("Fetching from main thread:", url);
-    const response = await fetch(url, {
-      credentials: "include",
-    });
-    const data = await response.json();
-    console.log("Data fetched from main thread:", data);
-    return data;
-  } catch (error) {
-    console.error("Error fetching from main thread:", error);
-    throw error;
-  }
-}
-
 function fetchFromWorker(url) {
   return new Promise((resolve, reject) => {
     console.log("Sending fetch request to worker:", url);
@@ -47,19 +32,21 @@ function fetchFromWorker(url) {
 async function run() {
   try {
     console.log("Starting caching example");
-    const mainThreadData = await fetchFromMainThread(
+
+    console.log("Attempting to fetch users data from worker");
+    const userData = await fetchFromWorker(
       "https://jsonplaceholder.typicode.com/users"
     );
-    console.log("Main thread data fetched successfully");
+    console.log("Users data fetched successfully");
 
-    console.log("Attempting to fetch data from worker");
-    const workerData = await fetchFromWorker(
+    console.log("Attempting to fetch todos data from worker");
+    const todosData = await fetchFromWorker(
       "https://jsonplaceholder.typicode.com/todos"
     );
-    console.log("Worker data fetched successfully");
+    console.log("Todos data fetched successfully");
 
-    console.log("Main thread data:", mainThreadData);
-    console.log("Worker data:", workerData);
+    console.log("Users data:", userData);
+    console.log("Todos data:", todosData);
   } catch (error) {
     console.error("Error in caching example:", error);
   }
