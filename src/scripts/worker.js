@@ -1,13 +1,46 @@
 console.log("Worker script loaded");
 
-const cache = new Map();
+let dbPromise;
 
-// Function to fetch data and cache the result
+// Function to initialize the database
+function initDB() {
+  if (!dbPromise) {
+    dbPromise = new Promise((resolve, reject) => {
+      const dbName = "WorkerCache";
+      const request = indexedDB.open(dbName, 1);
+
+      request.onerror = function (event) {
+        console.error("Error opening database:", event.target.error);
+        reject(event.target.error);
+      };
+
+      request.onsuccess = function (event) {
+        console.log("Database opened successfully");
+        resolve(event.target.result);
+      };
+
+      request.onupgradeneeded = function (event) {
+        const db = event.target.result;
+        db.createObjectStore("cache", { keyPath: "url" });
+        console.log("Object store created");
+      };
+    });
+  }
+  return dbPromise;
+}
+
+// Function to fetch data and cache the result in IndexedDB
 async function fetchAndCache(url) {
   console.log("Worker: fetchAndCache called with URL:", url);
-  if (cache.has(url)) {
+
+  // Ensure database is initialized
+  const db = await initDB();
+
+  // Try to get cached data
+  const cachedData = await getCachedData(db, url);
+  if (cachedData) {
     console.log("Worker: Returning cached data for:", url);
-    return cache.get(url);
+    return cachedData;
   }
 
   try {
@@ -22,12 +55,52 @@ async function fetchAndCache(url) {
     });
     const data = await response.json();
     console.log("Worker: Data fetched successfully:", data);
-    cache.set(url, data);
+
+    // Cache the new data
+    await cacheData(db, url, data);
+
     return data;
   } catch (error) {
     console.error("Worker: Error fetching data:", error);
     throw error;
   }
+}
+
+// Function to get cached data from IndexedDB
+function getCachedData(db, url) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(["cache"], "readonly");
+    const objectStore = transaction.objectStore("cache");
+    const request = objectStore.get(url);
+
+    request.onerror = function (event) {
+      console.error("Error reading cached data:", event.target.error);
+      reject(event.target.error);
+    };
+
+    request.onsuccess = function (event) {
+      resolve(event.target.result ? event.target.result.data : null);
+    };
+  });
+}
+
+// Function to cache data in IndexedDB
+function cacheData(db, url, data) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(["cache"], "readwrite");
+    const objectStore = transaction.objectStore("cache");
+    const request = objectStore.put({ url: url, data: data });
+
+    request.onerror = function (event) {
+      console.error("Error caching data:", event.target.error);
+      reject(event.target.error);
+    };
+
+    request.onsuccess = function (event) {
+      console.log("Data cached successfully");
+      resolve();
+    };
+  });
 }
 
 // Listen for messages from the main thread
