@@ -1,8 +1,13 @@
 importScripts("https://www.lactame.com/lib/image-js/0.21.2/image.min.js");
 
 self.onmessage = async (event) => {
-  const { imageData, task } = event.data;
-  const processedImageData = await processImage(imageData, task);
+  const { imageData, tasks } = event.data;
+  let processedImageData = imageData;
+
+  for (const task of tasks) {
+    processedImageData = await processImage(processedImageData, task);
+  }
+
   self.postMessage({ processedImageData });
 };
 
