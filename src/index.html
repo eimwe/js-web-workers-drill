@@ -20,11 +20,14 @@
       sizes="16x16"
       href="assets/favicon/favicon-16x16.png"
     />
-    <title>Web Worker IndexedDB Caching Example</title>
+    <link rel="stylesheet" href="styles/main.css" />
+    <title>Image Processing with Web Workers</title>
   </head>
   <body>
-    <h1>Web Worker IndexedDB Caching Example</h1>
-    <p>Check the console and IndexedDB for results.</p>
-    <script src="scripts/main.js"></script>
+    <input type="file" id="imageInput" accept="image/*" multiple />
+    <div id="outputContainer"></div>
+    <div id="timingResults"></div>
+    <script src="https://www.lactame.com/lib/image-js/0.21.2/image.min.js"></script>
+    <script type="module" src="scripts/main.js"></script>
   </body>
 </html>

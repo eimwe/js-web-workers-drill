@@ -1,55 +1,116 @@
-const worker = new Worker("scripts/worker.js");
+import eraseNodes from "./utils/node-eraser.js";
 
-console.log("Web worker created");
+const imageInput = document.getElementById("imageInput");
+const outputContainer = document.getElementById("outputContainer");
+const timingContainer = document.getElementById("timingResults");
 
-worker.onerror = function (error) {
-  console.error("Error in worker:", error.message);
-};
+imageInput.addEventListener("change", () => {
+  const files = Array.from(imageInput.files);
+  if (files.length > 0) {
+    processImages(files);
+  }
+});
 
-function fetchFromWorker(url) {
-  return new Promise((resolve, reject) => {
-    console.log("Sending fetch request to worker:", url);
-    worker.postMessage({ type: "fetch", url: url });
+async function processImages(files) {
+  const startTime = performance.now();
+  const workerPool = [];
 
-    worker.onmessage = function (event) {
-      console.log("Received message from worker:", event.data);
-      if (event.data.error) {
-        console.error("Error from worker:", event.data.error);
-        reject(new Error(event.data.error));
-      } else {
-        console.log("Data fetched from worker:", event.data);
-        resolve(event.data);
-      }
-    };
+  try {
+    const processedImages = await processImagesInParallel(files, workerPool);
+    displayProcessedImages(processedImages);
+  } finally {
+    workerPool.forEach((worker) => {
+      worker.terminate();
+    });
+  }
 
-    worker.onerror = function (error) {
-      console.error("Worker error:", error);
-      reject(error);
-    };
-  });
+  const endTime = performance.now();
+  const totalTime = endTime - startTime;
+
+  displayTimingResults(totalTime, workerPool);
 }
 
-async function run() {
+async function processImagesInParallel(files, workerPool) {
+  const tasks = files.map((file) => {
+    const worker = new Worker("scripts/worker.js");
+    workerPool.push(worker);
+    return processImageWithWorker(worker, file);
+  });
+
+  return Promise.all(tasks);
+}
+
+async function processImageWithWorker(worker, file) {
+  const imageData = await readFileAsImageData(file);
+  const startTime = performance.now();
+
   try {
-    console.log("Starting caching example");
-
-    console.log("Attempting to fetch users data from worker");
-    const userData = await fetchFromWorker(
-      "https://jsonplaceholder.typicode.com/users"
-    );
-    console.log("Users data fetched successfully");
-
-    console.log("Attempting to fetch todos data from worker");
-    const todosData = await fetchFromWorker(
-      "https://jsonplaceholder.typicode.com/todos"
-    );
-    console.log("Todos data fetched successfully");
-
-    console.log("Users data:", userData);
-    console.log("Todos data:", todosData);
+    const result = await createWorkerPromise(worker, imageData);
+    const endTime = performance.now();
+    const processingTime = endTime - startTime;
+    worker.totalTime = processingTime;
+    return result;
   } catch (error) {
-    console.error("Error in caching example:", error);
+    console.error(`Error processing image with worker:`, error);
+    throw error;
   }
 }
 
-run();
+function readFileAsImageData(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => resolve(event.target.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function createWorkerPromise(worker, imageData) {
+  return new Promise((resolve, reject) => {
+    worker.onmessage = (event) => {
+      const { processedImageData } = event.data;
+      resolve(processedImageData);
+    };
+    worker.onerror = reject;
+    worker.postMessage({ imageData, tasks: ["brightness", "crop", "round"] });
+  });
+}
+
+function displayTimingResults(totalTime, workerPool) {
+  eraseNodes(timingContainer);
+
+  const title = document.createElement("h3");
+  title.textContent = "Timing Results:";
+
+  const totalTimeP = document.createElement("p");
+  totalTimeP.textContent = `Total processing time: ${totalTime.toFixed(2)} ms`;
+
+  const workerTitle = document.createElement("h4");
+  workerTitle.textContent = "Individual Worker Times:";
+
+  const workerList = document.createElement("ul");
+  workerPool.forEach((worker, index) => {
+    const listItem = document.createElement("li");
+    listItem.textContent = `Worker ${index + 1}: ${worker.totalTime.toFixed(
+      2
+    )} ms`;
+    workerList.append(listItem);
+  });
+
+  timingContainer.append(title, totalTimeP, workerTitle, workerList);
+}
+
+function displayProcessedImages(processedImages) {
+  eraseNodes(outputContainer);
+
+  const fragment = document.createDocumentFragment();
+
+  for (const imageData of processedImages) {
+    const img = document.createElement("img");
+    img.src = imageData;
+    img.className = "outputImage";
+    fragment.append(img);
+  }
+
+  outputContainer.append(fragment);
+}
