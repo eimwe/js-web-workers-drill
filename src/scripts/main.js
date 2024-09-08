@@ -12,24 +12,11 @@ imageInput.addEventListener("change", () => {
 });
 
 async function processImages(files) {
-  const workerPool = [
-    new Worker("scripts/worker.js"),
-    new Worker("scripts/worker.js"),
-    new Worker("scripts/worker.js"),
-  ];
-
-  const tasks = ["brightness", "crop", "round"];
-
-  workerPool.forEach((worker, index) => {
-    worker.name = `Worker${index + 1}`;
-    worker.task = tasks[index];
-    worker.totalTime = 0;
-  });
-
   const startTime = performance.now();
+  const workerPool = [];
 
   try {
-    const processedImages = await processImagesSequentially(files, workerPool);
+    const processedImages = await processImagesInParallel(files, workerPool);
     displayProcessedImages(processedImages);
   } finally {
     workerPool.forEach((worker) => {
@@ -43,32 +30,28 @@ async function processImages(files) {
   displayTimingResults(totalTime, workerPool);
 }
 
-async function processImagesSequentially(files, workerPool) {
-  const processedImages = [];
+async function processImagesInParallel(files, workerPool) {
+  const tasks = files.map((file) => {
+    const worker = new Worker("scripts/worker.js");
+    workerPool.push(worker);
+    return processImageWithWorker(worker, file);
+  });
 
-  for (const file of files) {
-    let imageData = await readFileAsImageData(file);
-
-    for (const worker of workerPool) {
-      imageData = await processImageWithWorker(worker, imageData);
-    }
-
-    processedImages.push(imageData);
-  }
-
-  return processedImages;
+  return Promise.all(tasks);
 }
 
-async function processImageWithWorker(worker, imageData) {
+async function processImageWithWorker(worker, file) {
+  const imageData = await readFileAsImageData(file);
   const startTime = performance.now();
+
   try {
     const result = await createWorkerPromise(worker, imageData);
     const endTime = performance.now();
     const processingTime = endTime - startTime;
-    worker.totalTime += processingTime;
+    worker.totalTime = processingTime;
     return result;
   } catch (error) {
-    console.error(`Error processing image with ${worker.name}:`, error);
+    console.error(`Error processing image with worker:`, error);
     throw error;
   }
 }
@@ -89,7 +72,7 @@ function createWorkerPromise(worker, imageData) {
       resolve(processedImageData);
     };
     worker.onerror = reject;
-    worker.postMessage({ imageData, task: worker.task });
+    worker.postMessage({ imageData, tasks: ["brightness", "crop", "round"] });
   });
 }
 
@@ -106,11 +89,11 @@ function displayTimingResults(totalTime, workerPool) {
   workerTitle.textContent = "Individual Worker Times:";
 
   const workerList = document.createElement("ul");
-  workerPool.forEach((worker) => {
+  workerPool.forEach((worker, index) => {
     const listItem = document.createElement("li");
-    listItem.textContent = `${worker.name} (${
-      worker.task
-    }): ${worker.totalTime.toFixed(2)} ms`;
+    listItem.textContent = `Worker ${index + 1}: ${worker.totalTime.toFixed(
+      2
+    )} ms`;
     workerList.append(listItem);
   });
 
