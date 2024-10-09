@@ -3,6 +3,7 @@ import eraseNodes from "./utils/node-eraser.js";
 const imageInput = document.getElementById("image-input");
 const outputContainer = document.getElementById("output-container");
 const timingContainer = document.getElementById("timing-results");
+const loader = document.getElementById("loader");
 
 imageInput.addEventListener("change", () => {
   const files = Array.from(imageInput.files);
@@ -11,7 +12,18 @@ imageInput.addEventListener("change", () => {
   }
 });
 
+function showLoader() {
+  loader.classList.add("visible");
+}
+
+function hideLoader() {
+  loader.classList.remove("visible");
+}
+
 async function processImages(files) {
+  showLoader();
+  eraseNodes(outputContainer);
+  eraseNodes(timingContainer);
   const masterWorker = new Worker("scripts/master-worker.js");
   const processingTypes = ["brightness", "crop", "round"];
 
@@ -33,6 +45,7 @@ async function processImages(files) {
     displayError(`Error in master worker: ${error.message}`);
   } finally {
     masterWorker.terminate();
+    hideLoader();
   }
 
   const endTime = performance.now();
