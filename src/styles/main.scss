@@ -18,21 +18,30 @@ body {
   margin-inline: auto;
 }
 
-#imageInput {
-  display: block;
-  min-width: 100%;
+#image-uploader {
+  display: flex;
+  align-items: center;
+  min-height: 12ch;
   padding: 2em;
   margin-block-end: 1em;
   background-color: #ededed;
 }
 
-#outputContainer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1em;
+#loader {
+  display: none;
 }
 
-.outputImage {
+#loader.visible {
+  display: inline;
+}
+
+.output-image {
   max-width: 300px;
   object-fit: cover;
+}
+
+.image-wrapper {
+  display: flex;
+  gap: 1em;
+  align-items: baseline;
 }
