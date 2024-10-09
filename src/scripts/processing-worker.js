@@ -1,20 +1,19 @@
 importScripts("https://www.lactame.com/lib/image-js/0.21.2/image.min.js");
 
 self.onmessage = async (event) => {
-  const { imageData, tasks } = event.data;
-  let processedImageData = imageData;
-
-  for (const task of tasks) {
-    processedImageData = await processImage(processedImageData, task);
+  const { imageData, type } = event.data;
+  try {
+    const processedImageData = await processImage(imageData, type);
+    self.postMessage({ processedImageData });
+  } catch (error) {
+    self.postMessage({ error: error.message });
   }
-
-  self.postMessage({ processedImageData });
 };
 
-async function processImage(imageData, task) {
+async function processImage(imageData, type) {
   const image = await IJS.Image.load(imageData);
 
-  switch (task) {
+  switch (type) {
     case "brightness":
       return adjustBrightness(image);
     case "crop":
@@ -22,7 +21,7 @@ async function processImage(imageData, task) {
     case "round":
       return roundImage(image);
     default:
-      return image.toDataURL();
+      throw new Error(`Unknown processing type: ${type}`);
   }
 }
 
@@ -66,6 +65,5 @@ function roundImage(image) {
       }
     }
   }
-
-  return newImage.toDataURL("image/png");
+  return newImage.toDataURL();
 }

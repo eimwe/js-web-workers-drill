@@ -1,0 +1,47 @@
+html {
+  box-sizing: border-box;
+  scroll-behavior: smooth;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+body {
+  font: 1em "Calibri", sans-serif;
+}
+
+.wrapper {
+  max-width: 1374px;
+  margin-inline: auto;
+}
+
+#image-uploader {
+  display: flex;
+  align-items: center;
+  min-height: 12ch;
+  padding: 2em;
+  margin-block-end: 1em;
+  background-color: #ededed;
+}
+
+#loader {
+  display: none;
+}
+
+#loader.visible {
+  display: inline;
+}
+
+.output-image {
+  max-width: 300px;
+  object-fit: cover;
+}
+
+.image-wrapper {
+  display: flex;
+  gap: 1em;
+  align-items: baseline;
+}

@@ -1,8 +1,9 @@
 import eraseNodes from "./utils/node-eraser.js";
 
-const imageInput = document.getElementById("imageInput");
-const outputContainer = document.getElementById("outputContainer");
-const timingContainer = document.getElementById("timingResults");
+const imageInput = document.getElementById("image-input");
+const outputContainer = document.getElementById("output-container");
+const timingContainer = document.getElementById("timing-results");
+const loader = document.getElementById("loader");
 
 imageInput.addEventListener("change", () => {
   const files = Array.from(imageInput.files);
@@ -11,106 +12,115 @@ imageInput.addEventListener("change", () => {
   }
 });
 
+function showLoader() {
+  loader.classList.add("visible");
+}
+
+function hideLoader() {
+  loader.classList.remove("visible");
+}
+
 async function processImages(files) {
+  showLoader();
+  eraseNodes(outputContainer);
+  eraseNodes(timingContainer);
+  const masterWorker = new Worker("scripts/master-worker.js");
+  const processingTypes = ["brightness", "crop", "round"];
+
   const startTime = performance.now();
-  const workerPool = [];
 
   try {
-    const processedImages = await processImagesInParallel(files, workerPool);
-    displayProcessedImages(processedImages);
+    const result = await createMasterWorkerPromise(
+      masterWorker,
+      files,
+      processingTypes
+    );
+    if (result.error) {
+      displayError(result.error);
+    } else {
+      displayProcessedImages(result.processedImages);
+      displayTimingResults(result.timingResults, processingTypes);
+    }
+  } catch (error) {
+    displayError(`Error in master worker: ${error.message}`);
   } finally {
-    workerPool.forEach((worker) => {
-      worker.terminate();
-    });
+    masterWorker.terminate();
+    hideLoader();
   }
 
   const endTime = performance.now();
   const totalTime = endTime - startTime;
 
-  displayTimingResults(totalTime, workerPool);
+  updateTotalTime(totalTime);
 }
 
-async function processImagesInParallel(files, workerPool) {
-  const tasks = files.map((file) => {
-    const worker = new Worker("scripts/worker.js");
-    workerPool.push(worker);
-    return processImageWithWorker(worker, file);
-  });
-
-  return Promise.all(tasks);
-}
-
-async function processImageWithWorker(worker, file) {
-  const imageData = await readFileAsImageData(file);
-  const startTime = performance.now();
-
-  try {
-    const result = await createWorkerPromise(worker, imageData);
-    const endTime = performance.now();
-    const processingTime = endTime - startTime;
-    worker.totalTime = processingTime;
-    return result;
-  } catch (error) {
-    console.error(`Error processing image with worker:`, error);
-    throw error;
-  }
-}
-
-function readFileAsImageData(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (event) => resolve(event.target.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-function createWorkerPromise(worker, imageData) {
+function createMasterWorkerPromise(worker, files, processingTypes) {
   return new Promise((resolve, reject) => {
     worker.onmessage = (event) => {
-      const { processedImageData } = event.data;
-      resolve(processedImageData);
+      resolve(event.data);
     };
     worker.onerror = reject;
-    worker.postMessage({ imageData, tasks: ["brightness", "crop", "round"] });
+    worker.postMessage({ files, processingTypes });
   });
 }
 
-function displayTimingResults(totalTime, workerPool) {
+function displayError(message) {
+  eraseNodes(outputContainer);
+  const errorElement = document.createElement("p");
+  errorElement.textContent = `Error: ${message}`;
+  errorElement.style.color = "red";
+  outputContainer.appendChild(errorElement);
+}
+
+function displayTimingResults(timingResults, processingTypes) {
   eraseNodes(timingContainer);
 
   const title = document.createElement("h3");
   title.textContent = "Timing Results:";
 
-  const totalTimeP = document.createElement("p");
-  totalTimeP.textContent = `Total processing time: ${totalTime.toFixed(2)} ms`;
+  const typeTitle = document.createElement("h4");
+  typeTitle.textContent = "Processing Types:";
 
-  const workerTitle = document.createElement("h4");
-  workerTitle.textContent = "Individual Worker Times:";
-
-  const workerList = document.createElement("ul");
-  workerPool.forEach((worker, index) => {
+  const typeList = document.createElement("ul");
+  processingTypes.forEach((type) => {
     const listItem = document.createElement("li");
-    listItem.textContent = `Worker ${index + 1}: ${worker.totalTime.toFixed(
-      2
-    )} ms`;
-    workerList.append(listItem);
+    const time = timingResults[type] || "N/A";
+    listItem.textContent = `${type}: ${time.toFixed(2)} ms`;
+    typeList.append(listItem);
   });
 
-  timingContainer.append(title, totalTimeP, workerTitle, workerList);
+  timingContainer.append(title, typeTitle, typeList);
+}
+
+function updateTotalTime(totalTime) {
+  const totalTimeP = document.createElement("p");
+  totalTimeP.textContent = `Total processing time: ${totalTime.toFixed(2)} ms`;
+  timingContainer.append(totalTimeP);
 }
 
 function displayProcessedImages(processedImages) {
   eraseNodes(outputContainer);
 
-  const fragment = document.createDocumentFragment();
+  processedImages.forEach((imageSet, index) => {
+    const imageContainer = document.createElement("div");
+    imageContainer.className = "image-set";
 
-  for (const imageData of processedImages) {
-    const img = document.createElement("img");
-    img.src = imageData;
-    img.className = "outputImage";
-    fragment.append(img);
-  }
+    const imageTitle = document.createElement("h4");
+    imageTitle.textContent = `Image ${index + 1}`;
+    imageContainer.appendChild(imageTitle);
 
-  outputContainer.append(fragment);
+    const imageWrapper = document.createElement("div");
+    imageWrapper.className = "image-wrapper";
+
+    imageSet.forEach(({ type, data }) => {
+      const img = document.createElement("img");
+      img.src = data;
+      img.className = "output-image";
+      img.title = `${type} processed`;
+      imageWrapper.appendChild(img);
+    });
+
+    imageContainer.appendChild(imageWrapper);
+    outputContainer.appendChild(imageContainer);
+  });
 }

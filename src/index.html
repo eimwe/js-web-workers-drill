@@ -24,9 +24,12 @@
     <title>Image Processing with Web Workers</title>
   </head>
   <body>
-    <input type="file" id="imageInput" accept="image/*" multiple />
-    <div id="outputContainer"></div>
-    <div id="timingResults"></div>
+    <form id="image-uploader" action="#" method="POST">
+      <input type="file" id="image-input" accept="image/*" multiple />
+      <img id="loader" src="./assets/icon/loader.svg" />
+    </form>
+    <div id="output-container"></div>
+    <div id="timing-results"></div>
     <script src="https://www.lactame.com/lib/image-js/0.21.2/image.min.js"></script>
     <script type="module" src="scripts/main.js"></script>
   </body>
