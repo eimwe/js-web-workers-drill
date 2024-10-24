@@ -1,12 +1,17 @@
 importScripts("https://www.lactame.com/lib/image-js/0.21.2/image.min.js");
 
 self.onmessage = async (event) => {
-  const { imageData, type } = event.data;
+  const { imageData, type, imageIndex } = event.data;
+  const port = event.ports[0];
+
   try {
     const processedImageData = await processImage(imageData, type);
-    self.postMessage({ processedImageData });
+    port.postMessage({ 
+      processedImageData,
+      imageIndex
+    });
   } catch (error) {
-    self.postMessage({ error: error.message });
+    port.postMessage({ error: error.message });
   }
 };
 

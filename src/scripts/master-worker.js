@@ -17,22 +17,71 @@ self.onmessage = async (event) => {
 
 async function processAllImages(files, processingTypes) {
   initializeWorkerPool(processingTypes);
-  const processedImages = [];
+  
   const timingResults = {};
+  processingTypes.forEach(type => {
+    timingResults[type] = 0;
+  });
 
-  for (const file of files) {
-    const { processedImageSet, timings } = await processImageSet(
-      file,
-      processingTypes
-    );
-    processedImages.push(processedImageSet);
+  const imageDataPromises = files.map(file => readFileAsImageData(file));
+  const imagesData = await Promise.all(imageDataPromises);
 
-    for (const [type, time] of Object.entries(timings)) {
-      timingResults[type] = (timingResults[type] || 0) + time;
-    }
-  }
+  const processedImages = await Promise.all(
+    imagesData.map(async (imageData, index) => {
+      const processedSet = await Promise.all(
+        processingTypes.map(async (type) => {
+          const worker = workerPool.get(type);
+          if (!worker) {
+            throw new Error(`No worker available for processing type: ${type}`);
+          }
+
+          const startTime = performance.now();
+          const channel = new MessageChannel();
+          
+          const result = await new Promise((resolve, reject) => {
+            const messageHandler = (event) => {
+              channel.port1.close();
+              const { processedImageData, error } = event.data;
+              if (error) {
+                reject(new Error(error));
+              } else {
+                resolve({ type, data: processedImageData });
+              }
+            };
+
+            channel.port1.onmessage = messageHandler;
+            
+            worker.postMessage(
+              { 
+                imageData,
+                type,
+                imageIndex: index
+              },
+              [channel.port2]
+            );
+          });
+
+          const endTime = performance.now();
+          timingResults[type] += (endTime - startTime);
+          
+          return result;
+        })
+      );
+      
+      return processedSet;
+    })
+  );
 
   return { processedImages, timingResults };
+}
+
+function readFileAsImageData(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => resolve(event.target.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
 function initializeWorkerPool(processingTypes) {
@@ -48,60 +97,6 @@ function initializeWorkerPool(processingTypes) {
 function handleWorkerError(error) {
   console.error(`Worker error: ${error.message}`);
   self.postMessage({ error: `Worker error: ${error.message}` });
-}
-
-async function processImageSet(file, processingTypes) {
-  const imageData = await readFileAsImageData(file);
-  const processedImageSet = [];
-  const timings = {};
-
-  for (const type of processingTypes) {
-    const startTime = performance.now();
-    const processedImage = await processImage(imageData, type);
-    const endTime = performance.now();
-
-    processedImageSet.push(processedImage);
-    timings[type] = endTime - startTime;
-  }
-
-  return { processedImageSet, timings };
-}
-
-async function processImage(imageData, processingType) {
-  const worker = workerPool.get(processingType);
-  if (!worker) {
-    throw new Error(
-      `No worker available for processing type: ${processingType}`
-    );
-  }
-
-  return await createWorkerPromise(worker, imageData, processingType);
-}
-
-function readFileAsImageData(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (event) => resolve(event.target.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-function createWorkerPromise(worker, imageData, processingType) {
-  return new Promise((resolve, reject) => {
-    const messageHandler = (event) => {
-      worker.removeEventListener("message", messageHandler);
-      const { processedImageData, error } = event.data;
-      if (error) {
-        reject(new Error(error));
-      } else {
-        resolve({ type: processingType, data: processedImageData });
-      }
-    };
-
-    worker.addEventListener("message", messageHandler);
-    worker.postMessage({ imageData, type: processingType });
-  });
 }
 
 function terminateAllWorkers() {
