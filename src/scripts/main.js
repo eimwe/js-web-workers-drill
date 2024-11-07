@@ -4,11 +4,14 @@ const imageInput = document.getElementById("image-input");
 const outputContainer = document.getElementById("output-container");
 const timingContainer = document.getElementById("timing-results");
 const loader = document.getElementById("loader");
+let imageCount = 0;
 
 imageInput.addEventListener("change", () => {
   const files = Array.from(imageInput.files);
+  imageCount = files.length;
+  console.log(imageCount);
   if (files.length > 0) {
-    processImages(files);
+    processImages(files, imageCount);
   }
 });
 
@@ -20,7 +23,7 @@ function hideLoader() {
   loader.classList.remove("visible");
 }
 
-async function processImages(files) {
+async function processImages(files, imageCount) {
   showLoader();
   eraseNodes(outputContainer);
   eraseNodes(timingContainer);
@@ -39,7 +42,7 @@ async function processImages(files) {
       displayError(result.error);
     } else {
       displayProcessedImages(result.processedImages);
-      displayTimingResults(result.timingResults, processingTypes);
+      displayTimingResults(result.timingResults, processingTypes, imageCount);
     }
   } catch (error) {
     displayError(`Error in master worker: ${error.message}`);
@@ -72,7 +75,7 @@ function displayError(message) {
   outputContainer.appendChild(errorElement);
 }
 
-function displayTimingResults(timingResults, processingTypes) {
+function displayTimingResults(timingResults, processingTypes, imageCount) {
   eraseNodes(timingContainer);
 
   const title = document.createElement("h3");
@@ -82,20 +85,22 @@ function displayTimingResults(timingResults, processingTypes) {
   typeTitle.textContent = "Processing Types:";
 
   const typeList = document.createElement("ul");
+
+  let totalTime = 0;
   processingTypes.forEach((type) => {
     const listItem = document.createElement("li");
-    const time = timingResults[type] || "N/A";
-    listItem.textContent = `${type}: ${time.toFixed(2)} ms`;
+    const time = timingResults[type];
+    listItem.textContent = `${type}: ${(time / imageCount).toFixed(2)} ms`;
     typeList.append(listItem);
+    totalTime += time;
   });
 
-  timingContainer.append(title, typeTitle, typeList);
-}
-
-function updateTotalTime(totalTime) {
   const totalTimeP = document.createElement("p");
-  totalTimeP.textContent = `Total processing time: ${totalTime.toFixed(2)} ms`;
-  timingContainer.append(totalTimeP);
+  totalTimeP.textContent = `Total processing time: ${(
+    totalTime / imageCount
+  ).toFixed(2)} ms`;
+
+  timingContainer.append(title, typeTitle, typeList, totalTimeP);
 }
 
 function displayProcessedImages(processedImages) {
