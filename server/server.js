@@ -8,14 +8,14 @@ const PORT = 3000;
 // CORS configuration
 app.use(
   cors({
-    origin: "http://localhost:3001", // Your frontend URL
-    credentials: true, // Allow credentials
+    origin: "http://localhost:3001", // Frontend URL
+    credentials: true,
   })
 );
 
 app.use(cookieParser());
 
-// Test endpoint that sets a cookie
+// Endpoint to set a cookie
 app.get("/api/set-cookie", (req, res) => {
   res.cookie("testCookie", "hello-worker", {
     httpOnly: true,
