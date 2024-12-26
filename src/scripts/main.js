@@ -1,131 +1,79 @@
-import eraseNodes from "./utils/node-eraser.js";
-
-const imageInput = document.getElementById("image-input");
-const outputContainer = document.getElementById("output-container");
-const timingContainer = document.getElementById("timing-results");
-const loader = document.getElementById("loader");
-let imageCount = 0;
-
-imageInput.addEventListener("change", () => {
-  const files = Array.from(imageInput.files);
-  imageCount = files.length;
-  console.log(imageCount);
-  if (files.length > 0) {
-    processImages(files, imageCount);
+self.addEventListener("message", async (e) => {
+  if (e.data.type === "fetchWithCredentials") {
+    try {
+      const response = await fetch("http://localhost:3000/api/check-cookie", {
+        credentials: "include",
+      });
+      const data = await response.json();
+      self.postMessage({
+        type: "fetchResult",
+        data: data,
+        context: "worker",
+      });
+    } catch (error) {
+      self.postMessage({
+        type: "error",
+        error: error.message,
+      });
+    }
   }
 });
 
-function showLoader() {
-  loader.classList.add("visible");
-}
+// src/scripts/main.js
+let worker = null;
 
-function hideLoader() {
-  loader.classList.remove("visible");
-}
-
-async function processImages(files, imageCount) {
-  showLoader();
-  eraseNodes(outputContainer);
-  eraseNodes(timingContainer);
-  const masterWorker = new Worker("scripts/master-worker.js");
-  const processingTypes = ["brightness", "crop", "round"];
-
-  const startTime = performance.now();
-
+async function mainThreadFetch() {
   try {
-    const result = await createMasterWorkerPromise(
-      masterWorker,
-      files,
-      processingTypes
+    // Set cookie first
+    const setCookieResponse = await fetch(
+      "http://localhost:3000/api/set-cookie",
+      {
+        credentials: "include",
+      }
     );
-    if (result.error) {
-      displayError(result.error);
-    } else {
-      displayProcessedImages(result.processedImages);
-      displayTimingResults(result.timingResults, processingTypes, imageCount);
-    }
+    await setCookieResponse.json();
+
+    // Then check cookie
+    const checkResponse = await fetch(
+      "http://localhost:3000/api/check-cookie",
+      {
+        credentials: "include",
+      }
+    );
+    const data = await checkResponse.json();
+
+    document.getElementById(
+      "mainThreadResult"
+    ).textContent = `Main Thread Result: ${JSON.stringify(data)}`;
   } catch (error) {
-    displayError(`Error in master worker: ${error.message}`);
-  } finally {
-    masterWorker.terminate();
-    hideLoader();
+    console.error("Main thread error:", error);
+  }
+}
+
+function workerThreadFetch() {
+  if (!worker) {
+    worker = new Worker("scripts/worker.js");
+
+    worker.onmessage = (e) => {
+      if (e.data.type === "fetchResult") {
+        document.getElementById(
+          "workerResult"
+        ).textContent = `Worker Result: ${JSON.stringify(e.data.data)}`;
+      } else if (e.data.type === "error") {
+        console.error("Worker error:", e.data.error);
+      }
+    };
   }
 
-  const endTime = performance.now();
-  const totalTime = endTime - startTime;
-
-  updateTotalTime(totalTime);
+  worker.postMessage({ type: "fetchWithCredentials" });
 }
 
-function createMasterWorkerPromise(worker, files, processingTypes) {
-  return new Promise((resolve, reject) => {
-    worker.onmessage = (event) => {
-      resolve(event.data);
-    };
-    worker.onerror = reject;
-    worker.postMessage({ files, processingTypes });
-  });
-}
-
-function displayError(message) {
-  eraseNodes(outputContainer);
-  const errorElement = document.createElement("p");
-  errorElement.textContent = `Error: ${message}`;
-  errorElement.style.color = "red";
-  outputContainer.appendChild(errorElement);
-}
-
-function displayTimingResults(timingResults, processingTypes, imageCount) {
-  eraseNodes(timingContainer);
-
-  const title = document.createElement("h3");
-  title.textContent = "Timing Results:";
-
-  const typeTitle = document.createElement("h4");
-  typeTitle.textContent = "Processing Types:";
-
-  const typeList = document.createElement("ul");
-
-  let totalTime = 0;
-  processingTypes.forEach((type) => {
-    const listItem = document.createElement("li");
-    const time = timingResults[type];
-    listItem.textContent = `${type}: ${(time / imageCount).toFixed(2)} ms`;
-    typeList.append(listItem);
-    totalTime += time;
-  });
-
-  const totalTimeP = document.createElement("p");
-  totalTimeP.textContent = `Total processing time: ${(
-    totalTime / imageCount
-  ).toFixed(2)} ms`;
-
-  timingContainer.append(title, typeTitle, typeList, totalTimeP);
-}
-
-function displayProcessedImages(processedImages) {
-  eraseNodes(outputContainer);
-
-  processedImages.forEach((imageSet, index) => {
-    const imageContainer = document.createElement("div");
-    imageContainer.className = "image-set";
-
-    const imageTitle = document.createElement("h4");
-    imageTitle.textContent = `Image ${index + 1}`;
-    imageContainer.appendChild(imageTitle);
-
-    const imageWrapper = document.createElement("div");
-    imageWrapper.className = "image-wrapper";
-
-    imageSet.forEach(({ type, data }) => {
-      const img = document.createElement("img");
-      img.src = data;
-      img.className = "output-image";
-      img.title = `${type} processed`;
-      imageWrapper.appendChild(img);
-    });
-
-    imageContainer.appendChild(imageWrapper);
-    outputContainer.appendChild(imageContainer);
-  });
-}
+// Attach to buttons when DOM is loaded
+document.addEventListener("DOMContentLoaded", () => {
+  document
+    .getElementById("mainThreadBtn")
+    .addEventListener("click", mainThreadFetch);
+  document
+    .getElementById("workerThreadBtn")
+    .addEventListener("click", workerThreadFetch);
+});
