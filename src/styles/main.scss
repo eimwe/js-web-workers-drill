@@ -13,35 +13,27 @@ body {
   font: 1em "Calibri", sans-serif;
 }
 
-.wrapper {
-  max-width: 1374px;
-  margin-inline: auto;
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
 }
 
-#image-uploader {
-  display: flex;
-  align-items: center;
-  min-height: 12ch;
-  padding: 2em;
-  margin-block-end: 1em;
-  background-color: #ededed;
+.test-section {
+  margin: 20px 0;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
 }
 
-#loader {
-  display: none;
+pre {
+  background: #f5f5f5;
+  padding: 10px;
+  border-radius: 4px;
+  white-space: pre-wrap;
 }
 
-#loader.visible {
-  display: inline;
-}
-
-.output-image {
-  max-width: 300px;
-  object-fit: cover;
-}
-
-.image-wrapper {
-  display: flex;
-  gap: 1em;
-  align-items: baseline;
+button {
+  padding: 10px 20px;
+  margin: 10px 0;
 }
