@@ -21,16 +21,24 @@
       href="assets/favicon/favicon-16x16.png"
     />
     <link rel="stylesheet" href="styles/main.css" />
-    <title>Image Processing with Web Workers</title>
+    <title>CORS and Web Workers Demo</title>
   </head>
   <body>
-    <form id="image-uploader" action="#" method="POST">
-      <input type="file" id="image-input" accept="image/*" multiple />
-      <img id="loader" src="./assets/icon/loader.svg" />
-    </form>
-    <div id="output-container"></div>
-    <div id="timing-results"></div>
-    <script src="https://www.lactame.com/lib/image-js/0.21.2/image.min.js"></script>
-    <script type="module" src="scripts/main.js"></script>
+    <div class="container">
+      <h1>CORS and Web Workers Demo</h1>
+
+      <div class="test-section">
+        <h2>Main Thread Test</h2>
+        <button id="mainThreadBtn">Test Main Thread Fetch</button>
+        <pre id="mainThreadResult"></pre>
+      </div>
+
+      <div class="test-section">
+        <h2>Worker Thread Test</h2>
+        <button id="workerThreadBtn">Test Worker Thread Fetch</button>
+        <pre id="workerResult"></pre>
+      </div>
+    </div>
+    <script src="scripts/main.js"></script>
   </body>
 </html>
