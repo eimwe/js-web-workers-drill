@@ -6,10 +6,16 @@ const createSourcemap = require("gulp-sourcemaps");
 const deleteSourcemap = require("gulp-remove-sourcemaps");
 const del = require("del");
 const { src, series, parallel, dest, watch } = require("gulp");
+
 const markupPath = "src/*.html";
 const assetsPath = "src/assets/**/*";
 const stylesPath = "src/styles/**/*.scss";
 const scriptsPath = "src/scripts/**/*.js";
+const serverPath = "server/**/*.js";
+
+function copyServer() {
+  return src(serverPath).pipe(dest("dist/server"));
+}
 
 function copyHtml() {
   return src(markupPath).pipe(dest("dist"));
@@ -37,11 +43,13 @@ function serveUpdates() {
     server: {
       baseDir: "./dist/",
     },
+    port: 3001,
   });
   watch(stylesPath, compileStyles);
   watch(assetsPath, copyAssets);
   watch(markupPath, copyHtml).on("change", browserSync.reload);
   watch(scriptsPath, copyScripts).on("change", browserSync.reload);
+  watch(serverPath, copyServer);
 }
 
 function cleanDir() {
@@ -61,7 +69,7 @@ function minifyScripts() {
 
 exports.dev = series(
   cleanDir,
-  parallel(copyHtml, copyScripts, copyAssets, compileStyles),
+  parallel(copyHtml, copyScripts, copyAssets, compileStyles, copyServer),
   serveUpdates
 );
 
