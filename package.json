@@ -2,7 +2,8 @@
   "private": true,
   "scripts": {
     "dev": "gulp dev",
-    "prod": "gulp prod"
+    "prod": "gulp prod",
+    "server": "node dist/server/server.js"
   },
   "devDependencies": {
     "browser-sync": "^3.0.2",
